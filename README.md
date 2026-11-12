@@ -1,68 +1,50 @@
 # microlensing-dtw
 
-Which time-series similarity respects the physics of gravitational microlensing?
+Which time-series similarity keeps the physics of a microlensing event?
 
-This mini-project applies methods from the ENSAI course *Machine Learning for Time Series* (DTW, soft-DTW, nearest-neighbour models) to simulated Roman-like light curves: constant stars, variable stars, stellar microlensing events, free-floating-planet (FFP) events with finite-source effects, and stellar flares.
+I simulated Roman-like light curves (10 days, 30-minute cadence, 1 % noise) of five classes: constant stars, variable stars, stellar microlensing events, free-floating-planet (FFP) events with finite-source effects ([VBMicrolensing](https://github.com/valboz/VBMicrolensing)) and flares. I then compared nearest-neighbour models with the Euclidean distance, DTW and soft-DTW (methods from the ENSAI course *Machine Learning for Time Series*), on two tasks:
 
-**Main finding:** for microlensing, a good similarity must be **shift-invariant but not stretch-invariant**. Time warping (DTW) helps classification, but it blurs the Einstein time t_E, the quantity that sets the lens mass.
+- classifying the five classes (1-NN, 200 train / 150 test curves),
+- recovering the Einstein time $t_E$ of stellar and FFP events (5-NN regression of $\log_{10} t_E$, 300 train / 100 test events).
 
-## Steps
-
-| Step | Notebook | What it does | Run |
-|---|---|---|---|
-| 1 | [`01_look_at_the_data`](notebooks/01_look_at_the_data.ipynb) | Simulated light curves, short events, effect of t_E, simple features | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Dilru1/microlensing-dtw/blob/main/notebooks/01_look_at_the_data.ipynb) |
-| 2 | [`02_classification`](notebooks/02_classification.ipynb) | 5-class 1-NN: Euclidean vs. DTW variants | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Dilru1/microlensing-dtw/blob/main/notebooks/02_classification.ipynb) |
-| 3 | [`03_tE_recovery`](notebooks/03_tE_recovery.ipynb) | Recover log₁₀ t_E with 5-NN regression | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Dilru1/microlensing-dtw/blob/main/notebooks/03_tE_recovery.ipynb) |
-| 4 | [`04_soft_dtw`](notebooks/04_soft_dtw.ipynb) | Soft-DTW γ sweep: how much warping is acceptable | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Dilru1/microlensing-dtw/blob/main/notebooks/04_soft_dtw.ipynb) |
+"Centred" means each curve is shifted so its peak is in the middle of the window, which removes the time of peak $t_0$ without stretching time. The band is a Sakoe–Chiba radius of 12 h.
 
 ## Results
 
-Simulation: 10-day window, 30-minute cadence (480 epochs), 1% noise. "Centred" means each curve is shifted so its peak is mid-window, which removes the time of peak t₀ without stretching time. The band is a Sakoe–Chiba radius of 12 hours.
-
-| Distance | Step 2: 1-NN accuracy (5 classes) | Step 3: t_E error (RMSE, dex) |
+| Similarity | Accuracy | $t_E$ error (dex) |
 |---|---|---|
-| Euclidean | 70.7% | 0.197 |
-| Euclidean, centred | 91.3% | **0.126** |
-| DTW | **95.3%** | 0.194 |
-| DTW, 12 h band | 91.3% | 0.206 |
-| Centred + DTW | 94.7% | 0.193 |
-| Centred + DTW, 12 h band | **95.3%** | 0.153 |
+| Euclid | 70.7 % | 0.197 |
+| Euclid, centred | 91.3 % | **0.126** |
+| DTW | **95.3 %** | 0.194 |
+| DTW band | 91.3 % | 0.206 |
+| Centred + DTW | 94.7 % | 0.193 |
+| Centred + DTW band | **95.3 %** | 0.153 |
+| Centred soft-DTW, γ = 0.01 | 92.7 % | 0.159 |
+| Centred soft-DTW, γ = 0.1 | 87.3 % | 0.145 |
+| Centred soft-DTW, γ = 1 | 83.3 % | 0.147 |
+| Centred soft-DTW, γ = 10 | 80.0 % | 0.176 |
 
-- Removing t₀ alone takes classification from 71% to 91% and gives the best t_E.
-- Unconstrained DTW classifies best but loses about 50% more accuracy on t_E than shift-only alignment (0.193 vs. 0.126 dex).
-- A narrow warping band keeps most of the classification gain while losing less t_E information.
-- **Step 4:** with centred soft-DTW, the t_E error falls steadily as γ grows (0.258 → 0.181 dex for γ = 0.01 → 10), approaching the shift-only baseline (0.158 dex on this smaller set).
+![trade-off](figures/tradeoff.png)
 
-![t_E recovery](figures/step3_tE.png)
+DTW classifies best, but shifting alone recovers $t_E$ best: warping time also stretches the event, and the stretch is $t_E$. Soft-DTW and a narrow band lie in between. A good representation for microlensing should be shift-invariant but not stretch-invariant.
 
-Test sets are small (150 curves in Step 2, 100 in Step 3, 50 in Step 4), so differences of about 0.01–0.02 are within noise.
+The test sets are small and use a single seed, so differences of about 0.01–0.02 dex or a few per cent are within noise.
 
 ## Code
 
-- `mldtw/simulate.py`: light-curve simulator; finite-source magnification from [VBMicrolensing](https://github.com/valboz/VBMicrolensing).
-- `mldtw/bench.py`: `Bench` class that computes all distances, then 1-NN classification or k-NN regression.
-
-```python
-from mldtw.simulate import make_dataset
-from mldtw.bench import Bench
-
-Xtr, ytr, _ = make_dataset(40, seed=3)
-Xte, yte, _ = make_dataset(30, seed=4)
-Bench(Xtr, Xte).run().classify(ytr, yte)
-```
-
-## Run locally
+- `mldtw/simulate.py`: light-curve simulator
+- `notebooks/01_data.ipynb`: example light curves
+- `notebooks/02_classification.ipynb`: 1-NN classification
+- `notebooks/03_tE.ipynb`: $t_E$ regression
+- `notebooks/04_tradeoff.ipynb`: figure above
 
 ```bash
 pip install -r requirements.txt
+cd notebooks
+jupyter nbconvert --to notebook --execute --inplace 0*.ipynb
 ```
-In each notebook, replace the first cell's `!pip` / `!git clone` lines with `sys.path.insert(0, "..")` and set `FIG_DIR = "../figures"`.
 
-## Next directions
-
-- An encoder with the right invariance built in (CNN or attention on centred, log-time curves).
-- That encoder as the summary network for neural posterior estimation of (t₀, t_E, u₀, ρ).
-- Binary-lens (planetary) events, Roman-like noise and gaps, and real OGLE/KMTNet light curves.
+Notebooks 02 and 03 take about 5 minutes each (soft-DTW is the slow part).
 
 ## Author
 

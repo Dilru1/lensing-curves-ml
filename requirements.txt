@@ -1,6 +1,7 @@
 numpy
-scipy
 matplotlib
-VBMicrolensing
+scikit-learn
+joblib
 tslearn
-jupyterlab
+VBMicrolensing
+jupyter

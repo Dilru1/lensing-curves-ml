@@ -1,0 +1,12 @@
+{
+ "Euclid": 0.7066666666666667,
+ "Euclid, centred": 0.9133333333333333,
+ "DTW": 0.9533333333333334,
+ "DTW band": 0.9133333333333333,
+ "Centred + DTW": 0.9466666666666667,
+ "Centred + DTW band": 0.9533333333333334,
+ "Centred soft-DTW, gamma=0.01": 0.9266666666666666,
+ "Centred soft-DTW, gamma=0.1": 0.8733333333333333,
+ "Centred soft-DTW, gamma=1": 0.8333333333333334,
+ "Centred soft-DTW, gamma=10": 0.8
+}
